@@ -1,4 +1,4 @@
-# ErosPulse v0.11
+# ErosPulse
 
 **ErosPulse** est une application Python dédiée au contrôle interactif et à l'automatisation d'appareils haptiques / de bien-être connectés (notamment la gamme Lovense) via une interface graphique moderne et des générateurs de motifs de vibration dynamiques.
 
