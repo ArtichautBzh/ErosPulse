@@ -1,0 +1,12 @@
+# Dépendances de l'application ErosPulse
+#
+# Installation :
+#   pip install -r requirements.txt
+#
+# Tkinter (interface graphique) fait partie de la bibliothèque standard
+# de Python et n'a donc pas besoin d'être listé ici. Sur certaines
+# distributions Linux, il doit être installé séparément via le gestionnaire
+# de paquets du système, ex: sudo apt install python3-tk
+
+requests>=2.31
+urllib3>=2.0
