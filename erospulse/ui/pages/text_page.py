@@ -121,7 +121,8 @@ class TextPage(tk.Frame):
         self._hint_label = tk.Label(
             self,
             text="Colle ici une séquence de commandes au format [Y;D;[A;B]] "
-                 "(Y = moteur, D = durée en secondes, [A;B] = intensités moteur 1 / moteur 2).",
+                 "(Y = moteur, D = durée en secondes, [A;B] = intensités moteur 1 / moteur 2). "
+                 "Répète un bloc avec LOOP(N){ ... }.",
             bg=theme.BG_DARK,
             fg=theme.TEXT_SECONDARY,
             font=theme.FONT_SMALL,
@@ -301,7 +302,7 @@ class TextPage(tk.Frame):
         if not commands:
             self._flash_progress(
                 "Aucune commande valide trouvée. Format attendu : [Y;D;[A;B]] "
-                "(ex: [3;2;[10;15]]).",
+                "(ex: [3;2;[10;15]]), éventuellement dans un bloc LOOP(N){...}.",
                 theme.WARNING,
             )
             return

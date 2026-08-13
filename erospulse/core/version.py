@@ -61,10 +61,17 @@ Historique résumé (voir CHANGELOG.md à la racine pour le détail) :
              build (build_exe.bat / build_exe.sh) pour générer un
              exécutable autonome (.exe sur Windows, binaire natif sur
              macOS/Linux) à partir des sources
+    0.15.0 — Extension de syntaxe : blocs LOOP(N){...} pour répéter un
+             groupe de commandes [Y;D;[A;B]] N fois, sans avoir à le
+             retaper (imbrication de boucles supportée). Reste
+             totalement rétrocompatible : parse_sequence() développe
+             les boucles et continue de renvoyer une liste plate de
+             commandes, donc aucune autre partie de l'app n'a besoin
+             de connaître cette notion
 """
 
 APP_NAME = "ErosPulse"
-APP_VERSION = "0.14.0"
+APP_VERSION = "0.15.0"
 
 
 def version_label() -> str:

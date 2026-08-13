@@ -41,17 +41,38 @@ Règles sur A et B :
 - Si Y = 3 (les deux moteurs), A et B sont TOUS LES DEUX actifs
   simultanément et peuvent avoir des valeurs différentes.
 
+## Répétitions (optionnel)
+
+Pour un motif qui se répète tel quel (ex: un passage rythmique
+régulier, un refrain), tu peux regrouper un ou plusieurs commandes
+dans un bloc LOOP(N){...} plutôt que de les retaper N fois :
+
+    LOOP(N){ Z }
+
+- N : nombre de répétitions, ENTIER >= 1 (évite LOOP(0), qui ne sert
+  à rien puisque le bloc est alors simplement ignoré).
+- Z : un ou plusieurs [Y;D;[A;B]] à répéter, collés comme d'habitude.
+
+Exemple : LOOP(3){[1;2;[10;0]] [2;2;[0;15]]} répète cette paire de
+commandes 3 fois de suite. Les blocs LOOP peuvent être mélangés avec
+des commandes normales avant/après, et même imbriqués si besoin
+(LOOP(2){[1;1;[5;0]] LOOP(3){[2;1;[0;5]]}}), mais n'utilise cette
+notation que quand une répétition exacte a du sens : pour une
+progression qui varie (montée d'intensité, etc.), écris les commandes
+une par une plutôt que de forcer une boucle.
+
 ## Ce que tu dois produire
 
-Réponds UNIQUEMENT par la suite de commandes, collées les unes à la
-suite des autres (avec ou sans retour à la ligne entre elles, peu
-importe), sans aucun texte d'explication, sans markdown, sans
-numérotation, sans commentaire. Exemple de sortie attendue :
+Réponds UNIQUEMENT par la suite de commandes (et blocs LOOP le cas
+échéant), collés les uns à la suite des autres (avec ou sans retour à
+la ligne entre eux, peu importe), sans aucun texte d'explication, sans
+markdown, sans numérotation, sans commentaire. Exemple de sortie
+attendue :
 
 [3;2;[8;8]][1;1;[10;0]][2;1;[0;10]][3;3;[15;18]]
 
-Ne renvoie jamais de commande vide, de crochets mal fermés, ou de
-valeurs hors des bornes indiquées ci-dessus.
+Ne renvoie jamais de commande vide, de crochets ou d'accolades mal
+fermés, ou de valeurs hors des bornes indiquées ci-dessus.
 
 ## Comment transformer le texte en vibrations
 

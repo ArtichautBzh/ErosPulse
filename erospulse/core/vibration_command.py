@@ -21,6 +21,26 @@ Exemples :
     [2;3;[0;15]]   -> moteur 2 seul, 3s, intensité 15
     [3;5;[10;15]]  -> les deux moteurs, 5s, moteur1=10 / moteur2=15
 
+Le format supporte aussi des boucles, pour répéter un bloc de
+commandes sans avoir à le retaper :
+
+    LOOP(N){ Z }
+
+    N : nombre de répétitions (entier >= 0 ; 0 = le bloc est ignoré)
+    Z : un bloc contenant une ou plusieurs commandes [Y;D;[A;B]]
+        (et éventuellement d'autres LOOP(...) imbriquées)
+
+Exemple :
+    LOOP(3){[1;2;[10;0]] [2;2;[0;15]]}
+    -> équivaut à répéter 3 fois la paire de commandes, soit :
+       [1;2;[10;0]] [2;2;[0;15]] [1;2;[10;0]] [2;2;[0;15]] [1;2;[10;0]] [2;2;[0;15]]
+
+`parse_sequence()` développe entièrement les boucles et renvoie
+toujours une liste PLATE de VibrationCommand : le reste de
+l'application (lecture, graphique, décompte de durée...) n'a donc
+jamais besoin de connaître la notion de boucle, uniquement la
+séquence finale de commandes à jouer.
+
 Ce fichier ne s'occupe QUE du format des commandes (parsing, validation,
 sérialisation) et de leur exécution via LovenseClient. La génération
 des commandes à partir d'un texte (analyse du rythme, de la
@@ -33,7 +53,7 @@ import re
 import time
 import threading
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from core.constants import MAX_STRENGTH, MIN_STRENGTH, clamp
 from core.lovense_client import LovenseClient
@@ -53,6 +73,13 @@ _COMMAND_RE = re.compile(
     r"\[\s*(?P<motor>[123])\s*;\s*(?P<duration>\d+)\s*;\s*"
     r"\[\s*(?P<a>\d+)\s*;\s*(?P<b>\d+)\s*\]\s*\]"
 )
+
+# Reconnaît le début d'un bloc "LOOP(N){", espaces optionnels tolérés.
+_LOOP_OPEN_RE = re.compile(r"LOOP\s*\(\s*(?P<count>\d+)\s*\)\s*\{")
+
+
+class SequenceSyntaxError(ValueError):
+    """Erreur de syntaxe dans une séquence [Y;D;[A;B]] / LOOP(N){...}."""
 
 
 @dataclass
@@ -104,20 +131,73 @@ class VibrationCommand:
         return self.motor in (MOTOR_2, MOTOR_BOTH)
 
 
+def _parse_block(text: str, pos: int, inside_loop: bool) -> Tuple[List[VibrationCommand], int]:
+    """Analyse récursivement `text` à partir de `pos`, jusqu'à la fin du
+    texte ou (si `inside_loop`) jusqu'à une accolade fermante "}"
+    correspondant à un LOOP(...) ouvert par l'appelant.
+
+    Renvoie (liste plate de VibrationCommand, position juste après le
+    bloc). Les boucles LOOP(N){...} sont développées immédiatement : le
+    résultat ne contient jamais que des VibrationCommand, jamais de
+    structure de boucle.
+
+    Tout caractère qui ne fait partie ni d'une commande [Y;D;[A;B]] ni
+    d'une ouverture LOOP(N){ reconnue est simplement ignoré (espaces,
+    texte libre, ponctuation...), comme le faisait déjà l'ancien
+    parseur à base de regex — pour rester tolérant face à du texte
+    généré par une IA autour des commandes.
+    """
+    commands: List[VibrationCommand] = []
+    n = len(text)
+
+    while pos < n:
+        loop_match = _LOOP_OPEN_RE.match(text, pos)
+        if loop_match:
+            count = int(loop_match.group("count"))
+            inner_commands, after = _parse_block(text, loop_match.end(), inside_loop=True)
+            commands.extend(inner_commands * count)
+            pos = after
+            continue
+
+        cmd_match = _COMMAND_RE.match(text, pos)
+        if cmd_match:
+            commands.append(VibrationCommand(
+                motor=int(cmd_match.group("motor")),
+                duration=int(cmd_match.group("duration")),
+                intensity1=int(cmd_match.group("a")),
+                intensity2=int(cmd_match.group("b")),
+            ))
+            pos = cmd_match.end()
+            continue
+
+        if text[pos] == "}":
+            if inside_loop:
+                return commands, pos + 1
+            # Accolade fermante orpheline (pas de LOOP(...) ouvert
+            # correspondant) : on l'ignore, comme n'importe quel autre
+            # caractère non reconnu.
+            pos += 1
+            continue
+
+        pos += 1  # caractère non reconnu : on l'ignore et on avance
+
+    if inside_loop:
+        raise SequenceSyntaxError("Bloc LOOP(...) non refermé : accolade '}' manquante.")
+    return commands, pos
+
+
 def parse_sequence(text: str) -> List[VibrationCommand]:
     """Extrait, dans l'ordre, toutes les commandes [Y;D;[A;B]] présentes
-    dans `text` (utile pour une suite de commandes généreée par le futur
-    algorithme texte -> vibration, ex: "[1;2;[10;0]][2;1;[0;20]]").
+    dans `text`, en développant entièrement les blocs LOOP(N){...}
+    (y compris imbriqués) en répétitions de commandes.
+
+    Exemple : "LOOP(2){[1;1;[5;0]]}" -> deux VibrationCommand identiques.
+
+    Lève SequenceSyntaxError (une ValueError) si un bloc LOOP(...) est
+    ouvert sans être refermé.
     """
-    return [
-        VibrationCommand(
-            motor=int(m.group("motor")),
-            duration=int(m.group("duration")),
-            intensity1=int(m.group("a")),
-            intensity2=int(m.group("b")),
-        )
-        for m in _COMMAND_RE.finditer(text)
-    ]
+    commands, _ = _parse_block(text, 0, inside_loop=False)
+    return commands
 
 
 # ---------------------------------------------------------------------

@@ -3,6 +3,30 @@
 Toutes les versions notables du projet sont documentées ici. Le
 projet s'appelait "Lovense Text-to-Vibe" jusqu'à la v0.10.0.
 
+## v0.15.0
+
+**Boucles LOOP(N){...}**
+- Nouvelle syntaxe dans `core/vibration_command.py` : un bloc
+  `LOOP(N){ Z }` répète N fois le contenu `Z` (une ou plusieurs
+  commandes `[Y;D;[A;B]]`), sans avoir à le retaper. Exemple :
+  `LOOP(3){[1;2;[10;0]] [2;2;[0;15]]}` équivaut à écrire la paire de
+  commandes 3 fois de suite.
+- Les boucles peuvent être imbriquées (`LOOP(2){... LOOP(3){...}}`)
+  et mélangées librement avec des commandes normales avant/après.
+- `parse_sequence()` a été réécrit en un vrai parseur récursif (les
+  accolades imbriquées ne sont pas gérables de façon fiable avec une
+  simple regex), mais continue de renvoyer une **liste plate** de
+  `VibrationCommand`, boucles entièrement développées : la lecture, le
+  graphique et le calcul de durée totale fonctionnent donc avec `LOOP`
+  sans la moindre modification.
+- `LOOP(0){...}` est accepté et ignore simplement son contenu ; un
+  bloc `LOOP(...)` non refermé lève une erreur claire
+  (`SequenceSyntaxError`, une sous-classe de `ValueError`, déjà gérée
+  par l'interface).
+- `core/ai_prompt.py` mis à jour pour que l'IA sache utiliser `LOOP`
+  quand c'est pertinent (motif qui se répète à l'identique), sans
+  l'imposer pour des séquences qui évoluent (montée d'intensité, etc.).
+
 ## v0.14.0
 
 **Génération d'un exécutable autonome**
