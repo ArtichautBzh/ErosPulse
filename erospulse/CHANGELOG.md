@@ -3,6 +3,33 @@
 Toutes les versions notables du projet sont documentées ici. Le
 projet s'appelait "Lovense Text-to-Vibe" jusqu'à la v0.10.0.
 
+## v0.16.0
+
+**Import de modèles de séquence**
+- Nouveau module `core/settings.py` : réglages persistés sur disque
+  (fichier `settings.json` à la racine du projet), pour l'instant
+  limités au dossier configuré pour les modèles importables — mais
+  conçu pour accueillir d'autres préférences à l'avenir.
+- Nouveau module `core/template_library.py` : découverte des fichiers
+  `.txt` dans un dossier donné, et lecture de leur contenu. Aucune
+  validation du contenu ici : un modèle chargé est traité exactement
+  comme du texte tapé à la main (même parsing, mêmes erreurs possibles).
+- Page de séquence : nouveau menu déroulant listant les fichiers `.txt`
+  du dossier configuré (par défaut `Import/` à la racine du projet,
+  créé automatiquement s'il n'existe pas encore). Sélectionner un
+  modèle remplace le contenu de l'éditeur et met à jour
+  immédiatement la durée totale et le graphique.
+- Bouton **"Dossier…"** pour choisir un autre dossier via le sélecteur
+  natif du système ; le choix est mémorisé pour les prochains
+  lancements. Bouton **⟳** pour rafraîchir manuellement la liste ; elle
+  se rafraîchit aussi automatiquement à chaque retour sur la page.
+- Bouton **"Masquer le texte" / "Afficher le texte"** : replie ou
+  déplie la zone d'édition (le contenu est conservé même masqué,
+  seul l'affichage change).
+- Un exemple (`Import/Exemple - vague.txt`, utilisant `LOOP`) est
+  fourni avec le projet pour que la fonctionnalité soit visible dès le
+  premier lancement.
+
 ## v0.15.0
 
 **Boucles LOOP(N){...}**

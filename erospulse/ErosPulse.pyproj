@@ -32,6 +32,8 @@
     <Compile Include="core\constants.py" />
     <Compile Include="core\lovense_client.py" />
     <Compile Include="core\pattern_generator.py" />
+    <Compile Include="core\settings.py" />
+    <Compile Include="core\template_library.py" />
     <Compile Include="core\version.py" />
     <Compile Include="core\vibration_command.py" />
     <Compile Include="ui\__init__.py" />
@@ -51,6 +53,7 @@
     <Content Include="ErosPulse.spec" />
     <Content Include="build_exe.bat" />
     <Content Include="build_exe.sh" />
+    <Content Include="Import\Exemple - vague.txt" />
   </ItemGroup>
 
   <ItemGroup>
@@ -59,6 +62,7 @@
     <Folder Include="ui\pages\" />
     <Folder Include="ui\widgets\" />
     <Folder Include="vendor\" />
+    <Folder Include="Import\" />
   </ItemGroup>
 
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />

@@ -68,10 +68,14 @@ Historique résumé (voir CHANGELOG.md à la racine pour le détail) :
              les boucles et continue de renvoyer une liste plate de
              commandes, donc aucune autre partie de l'app n'a besoin
              de connaître cette notion
+    0.16.0 — Import de modèles de séquence (.txt) depuis un dossier
+             configurable (par défaut Import/ à la racine du projet),
+             listés dans un menu déroulant sur la page de séquence.
+             Bouton pour masquer/afficher la zone de texte
 """
 
 APP_NAME = "ErosPulse"
-APP_VERSION = "0.15.0"
+APP_VERSION = "0.16.0"
 
 
 def version_label() -> str:

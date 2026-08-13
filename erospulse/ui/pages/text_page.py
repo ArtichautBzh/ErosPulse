@@ -50,8 +50,10 @@ from __future__ import annotations
 
 import threading
 import tkinter as tk
-from tkinter import ttk
+from tkinter import filedialog, ttk
 
+from core.settings import get_import_folder, set_import_folder
+from core.template_library import ensure_folder_exists, list_templates, read_template
 from core.vibration_command import VibrationCommand, parse_sequence, play_sequence
 from ui import theme
 from ui.widgets.sequence_chart import SequenceChart
@@ -86,9 +88,14 @@ class TextPage(tk.Frame):
         # être restauré après une pause / navigation / reprise (voir
         # _on_pause_toggle, _on_back, on_show).
         self._current_command_text: str = ""
+        # Fichiers .txt trouvés dans le dossier d'import, dans le même
+        # ordre que ceux listés dans le menu déroulant.
+        self._template_files: list = []
+        self._text_visible = True
 
         self._build_header()
         self._build_hint()
+        self._build_import_controls()
         self._build_bottom_bar()   # ancré en bas AVANT l'éditeur, pour lui
                                     # garantir sa place quelle que soit la
                                     # taille de la fenêtre (voir docstring).
@@ -138,6 +145,44 @@ class TextPage(tk.Frame):
             "<Configure>",
             lambda event: self._hint_label.config(wraplength=max(200, event.width - 4)),
         )
+
+    # ------------------------------------------------------------------
+    def _build_import_controls(self) -> None:
+        row = tk.Frame(self, bg=theme.BG_DARK)
+        row.pack(side="top", fill="x", padx=28, pady=(0, 10))
+
+        tk.Label(
+            row, text="Modèles :", bg=theme.BG_DARK, fg=theme.TEXT_SECONDARY, font=theme.FONT_SMALL,
+        ).pack(side="left")
+
+        self._template_var = tk.StringVar(value="")
+        self._template_combo = ttk.Combobox(
+            row, textvariable=self._template_var, state="readonly", width=26,
+        )
+        self._template_combo.pack(side="left", padx=(6, 6))
+        self._template_combo.bind("<<ComboboxSelected>>", self._on_template_selected)
+
+        refresh_btn = ttk.Button(
+            row, text="⟳", width=3, style="Secondary.TButton", command=self._refresh_template_list,
+        )
+        refresh_btn.pack(side="left", padx=(0, 10))
+
+        folder_btn = ttk.Button(
+            row, text="Dossier…", style="Secondary.TButton", command=self._on_choose_folder,
+        )
+        folder_btn.pack(side="left", padx=(0, 10))
+
+        self._toggle_text_btn = ttk.Button(
+            row, text="Masquer le texte", style="Secondary.TButton", command=self._on_toggle_text_visibility,
+        )
+        self._toggle_text_btn.pack(side="left")
+
+        self._import_folder_label = tk.Label(
+            row, text="", bg=theme.BG_DARK, fg=theme.TEXT_MUTED, font=theme.FONT_SMALL,
+        )
+        self._import_folder_label.pack(side="right")
+
+        self._refresh_template_list()
 
     # ------------------------------------------------------------------
     def _build_bottom_bar(self) -> None:
@@ -209,11 +254,18 @@ class TextPage(tk.Frame):
         # l'espace restant une fois le header, le texte d'aide et la
         # barre du bas placés — c'est elle qui grandit ou rétrécit avec
         # la fenêtre, jamais les éléments ancrés aux bords.
-        text_container = tk.Frame(self, bg=theme.BG_CARD)
-        text_container.pack(side="top", fill="both", expand=True, padx=28, pady=(0, 10))
+        #
+        # Stockée dans self._text_container pour pouvoir la masquer /
+        # réafficher via _on_toggle_text_visibility() sans reconstruire
+        # le widget (pack_forget() puis pack() avec les mêmes réglages).
+        self._text_container_pack_kwargs = dict(
+            side="top", fill="both", expand=True, padx=28, pady=(0, 10)
+        )
+        self._text_container = tk.Frame(self, bg=theme.BG_CARD)
+        self._text_container.pack(**self._text_container_pack_kwargs)
 
         self._text_widget = tk.Text(
-            text_container,
+            self._text_container,
             bg=theme.BG_CARD,
             fg=theme.TEXT_PRIMARY,
             insertbackground=theme.TEXT_PRIMARY,
@@ -227,7 +279,7 @@ class TextPage(tk.Frame):
         self._text_widget.pack(fill="both", expand=True, side="left")
         self._text_widget.bind("<<Modified>>", self._on_text_modified)
 
-        scrollbar = ttk.Scrollbar(text_container, command=self._text_widget.yview)
+        scrollbar = ttk.Scrollbar(self._text_container, command=self._text_widget.yview)
         scrollbar.pack(fill="y", side="right")
         self._text_widget.config(yscrollcommand=scrollbar.set)
 
@@ -280,6 +332,63 @@ class TextPage(tk.Frame):
 
     def get_text(self) -> str:
         return self._text_widget.get("1.0", "end-1c")
+
+    def _set_editor_content(self, content: str) -> None:
+        """Remplace le contenu de l'éditeur (utilisé pour charger un
+        modèle importé), puis recalcule compteur/durée/graphique comme
+        si le texte avait été tapé à la main."""
+        self._text_widget.delete("1.0", "end")
+        self._text_widget.insert("1.0", content)
+        self._on_text_modified()
+
+    # ------------------------------------------------------------------
+    # Import de modèles (.txt) depuis le dossier configuré
+    # ------------------------------------------------------------------
+    def _refresh_template_list(self) -> None:
+        folder = get_import_folder()
+        ensure_folder_exists(folder)
+        self._template_files = list_templates(folder)
+        names = [p.stem for p in self._template_files]
+        self._template_combo["values"] = names
+        if self._template_var.get() not in names:
+            self._template_var.set("")
+        self._import_folder_label.config(text=str(folder))
+
+    def _on_template_selected(self, event=None) -> None:
+        name = self._template_var.get()
+        match = next((p for p in self._template_files if p.stem == name), None)
+        if match is None:
+            return
+        try:
+            content = read_template(match)
+        except OSError as exc:
+            self._flash_progress(f"Impossible de lire {match.name} : {exc}", theme.DANGER)
+            return
+        self._set_editor_content(content)
+        self._flash_progress(f"Modèle chargé : {match.name}", theme.SUCCESS)
+
+    def _on_choose_folder(self) -> None:
+        chosen = filedialog.askdirectory(
+            title="Choisir le dossier des modèles",
+            initialdir=str(get_import_folder()),
+        )
+        if not chosen:
+            return  # boîte de dialogue annulée
+        set_import_folder(chosen)
+        self._refresh_template_list()
+        self._flash_progress(f"Dossier des modèles : {chosen}", theme.SUCCESS)
+
+    # ------------------------------------------------------------------
+    # Afficher / masquer la zone de texte
+    # ------------------------------------------------------------------
+    def _on_toggle_text_visibility(self) -> None:
+        if self._text_visible:
+            self._text_container.pack_forget()
+            self._toggle_text_btn.config(text="Afficher le texte")
+        else:
+            self._text_container.pack(**self._text_container_pack_kwargs)
+            self._toggle_text_btn.config(text="Masquer le texte")
+        self._text_visible = not self._text_visible
 
     # ------------------------------------------------------------------
     # Génération / exécution de la séquence
@@ -465,6 +574,7 @@ class TextPage(tk.Frame):
     # Appelé automatiquement par AppWindow.show_page()
     def on_show(self) -> None:
         self._connection_label.config(text=self._connection_status_text(), fg=theme.TEXT_SECONDARY)
+        self._refresh_template_list()
         if self._playing:
             # On revient sur une séquence en pause (ou en cours) laissée
             # par un précédent passage sur cette page : on resynchronise
