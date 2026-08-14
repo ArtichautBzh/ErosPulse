@@ -95,5 +95,5 @@ Le projet inclut un répertoire `vendor/` contenant des copies autonomes de bibl
 
 ## 📄 Licence & Crédits
 
-- **Version** : 0.15
+- **Version** : 0.16
 - **Projet** : ErosPulse
