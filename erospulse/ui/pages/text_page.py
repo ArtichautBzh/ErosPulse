@@ -49,12 +49,13 @@ elle-même s'agrandit ou se réduit.
 from __future__ import annotations
 
 import threading
+import time
 import tkinter as tk
 from tkinter import filedialog, ttk
 
 from core.settings import get_import_folder, set_import_folder
 from core.template_library import ensure_folder_exists, list_templates, read_template
-from core.vibration_command import VibrationCommand, parse_sequence, play_sequence
+from core.vibration_command import VibrationCommand, parse_sequence, parse_sequence_detailed, play_sequence
 from ui import theme
 from ui.widgets.sequence_chart import SequenceChart
 
@@ -74,6 +75,16 @@ def _format_mmss(total_seconds: float) -> str:
     return f"{minutes}:{seconds:02d}"
 
 
+def _format_loop_suffix(loop_path: list) -> str:
+    """Formate la position dans les boucles pour l'affichage, ex:
+    [(2, 3)] -> " (boucle 2/3)", [(1, 2), (3, 4)] -> " (boucle 1/2 > 3/4)".
+    Chaîne vide si la commande n'est dans aucune boucle."""
+    if not loop_path:
+        return ""
+    parts = [f"{iteration}/{total}" for iteration, total in loop_path]
+    return " (boucle " + " > ".join(parts) + ")"
+
+
 class TextPage(tk.Frame):
     def __init__(self, parent: tk.Widget, controller) -> None:
         super().__init__(parent, bg=theme.BG_DARK)
@@ -88,6 +99,19 @@ class TextPage(tk.Frame):
         # être restauré après une pause / navigation / reprise (voir
         # _on_pause_toggle, _on_back, on_show).
         self._current_command_text: str = ""
+        # Position dans les boucles LOOP(N){...} pour chaque commande de
+        # la séquence en cours (même index que la liste de commandes
+        # jouée), utilisée pour afficher "boucle 2/3" dans le message de
+        # progression. Liste vide si la commande courante n'est dans
+        # aucune boucle.
+        self._loop_paths: list = []
+        # Ancrage temps réel <-> temps "dans la séquence", pour que le
+        # graphique et le décompte restent synchronisés avec la lecture
+        # RÉELLE (voir on_command_start dans _start_playback) plutôt que
+        # de dériver s'ils étaient calculés par un simple minuteur
+        # indépendant du thread de lecture.
+        self._command_start_elapsed: float = 0.0
+        self._command_start_wallclock: float = 0.0
         # Fichiers .txt trouvés dans le dossier d'import, dans le même
         # ordre que ceux listés dans le menu déroulant.
         self._template_files: list = []
@@ -114,14 +138,25 @@ class TextPage(tk.Frame):
         )
         back_btn.pack(side="left")
 
+        status = tk.Frame(header, bg=theme.BG_DARK)
+        status.pack(side="right")
+
+        # Pastille d'état (verte = connecté, orange = non connecté), même
+        # style que sur la page d'accueil (voir home_page.py).
+        self._status_dot = tk.Canvas(
+            status, width=10, height=10, bg=theme.BG_DARK, highlightthickness=0
+        )
+        self._status_dot_item = self._status_dot.create_oval(0, 0, 10, 10, fill=theme.WARNING, outline="")
+        self._status_dot.pack(side="left", padx=(0, 8))
+
         self._connection_label = tk.Label(
-            header,
+            status,
             text="",
             bg=theme.BG_DARK,
             fg=theme.TEXT_SECONDARY,
             font=theme.FONT_SMALL,
         )
-        self._connection_label.pack(side="right")
+        self._connection_label.pack(side="left")
 
     # ------------------------------------------------------------------
     def _build_hint(self) -> None:
@@ -403,12 +438,12 @@ class TextPage(tk.Frame):
             return
 
         try:
-            commands = parse_sequence(content)
+            steps = parse_sequence_detailed(content)
         except ValueError as exc:
             self._flash_progress(f"Séquence invalide : {exc}", theme.DANGER)
             return
 
-        if not commands:
+        if not steps:
             self._flash_progress(
                 "Aucune commande valide trouvée. Format attendu : [Y;D;[A;B]] "
                 "(ex: [3;2;[10;15]]), éventuellement dans un bloc LOOP(N){...}.",
@@ -422,13 +457,16 @@ class TextPage(tk.Frame):
             self.controller.show_page("connection")
             return
 
-        self._start_playback(commands)
+        commands = [s.command for s in steps]
+        loop_paths = [s.loop_path for s in steps]
+        self._start_playback(commands, loop_paths)
 
-    def _start_playback(self, commands: list[VibrationCommand]) -> None:
+    def _start_playback(self, commands: list[VibrationCommand], loop_paths: list) -> None:
         client = self.controller.state.client
         self._stop_event = threading.Event()
         self._pause_event = threading.Event()
         self._playing = True
+        self._loop_paths = loop_paths
         self._generate_btn.config(state="disabled", text="Lecture en cours…")
         self._pause_btn.config(state="normal", text="Pause")
         total = len(commands)
@@ -449,12 +487,26 @@ class TextPage(tk.Frame):
             self._total_duration_seconds = float(sum(c.duration for c in commands))
             self._remaining_seconds = self._total_duration_seconds
             self._duration_label.config(text=f"Temps restant : {_format_mmss(self._remaining_seconds)}")
+            self._command_start_elapsed = 0.0
+            self._command_start_wallclock = time.monotonic()
             self.after(_COUNTDOWN_TICK_MS, self._tick_countdown)
 
         def on_command_start(index: int, total_: int, command: VibrationCommand) -> None:
+            # Temps réellement écoulé dans la séquence au moment où CETTE
+            # commande démarre pour de vrai (ancrage sur l'événement réel
+            # du thread de lecture, pas sur une estimation) : élimine tout
+            # décalage entre le graphique/décompte et les vibrations
+            # effectives, y compris la dérive due au temps réseau de
+            # chaque envoi de commande.
+            elapsed_before = sum(c.duration for c in commands[:index])
+
             def update() -> None:
-                self._current_command_text = f"Commande {index + 1}/{total_} — {command}"
+                loop_suffix = _format_loop_suffix(loop_paths[index]) if index < len(loop_paths) else ""
+                self._current_command_text = f"Commande {index + 1}/{total_}{loop_suffix} — {command}"
                 self._set_progress(self._current_command_text, theme.SUCCESS)
+                self._command_start_elapsed = elapsed_before
+                self._command_start_wallclock = time.monotonic()
+                self._chart.set_playhead(elapsed_before)
             self.after(0, update)
 
         def worker() -> None:
@@ -484,9 +536,15 @@ class TextPage(tk.Frame):
             # possible.
             self.after(_COUNTDOWN_TICK_MS, self._tick_countdown)
             return
-        self._remaining_seconds = max(0.0, self._remaining_seconds - _COUNTDOWN_TICK_MS / 1000)
+        # Le temps écoulé est calculé à partir du dernier point d'ancrage
+        # réel (fixé par on_command_start, ou par la reprise après pause),
+        # pas par simple décrémentation indépendante : ça évite toute
+        # dérive entre l'affichage et la lecture effective (voir
+        # _start_playback et _on_pause_toggle).
+        elapsed = self._command_start_elapsed + (time.monotonic() - self._command_start_wallclock)
+        elapsed = min(elapsed, self._total_duration_seconds)
+        self._remaining_seconds = max(0.0, self._total_duration_seconds - elapsed)
         self._duration_label.config(text=f"Temps restant : {_format_mmss(self._remaining_seconds)}")
-        elapsed = max(0.0, self._total_duration_seconds - self._remaining_seconds)
         self._chart.set_playhead(elapsed)
         if self._remaining_seconds > 0:
             self.after(_COUNTDOWN_TICK_MS, self._tick_countdown)
@@ -495,7 +553,12 @@ class TextPage(tk.Frame):
         if not self._playing or self._pause_event is None:
             return
         if self._pause_event.is_set():
-            # Actuellement en pause -> on reprend.
+            # Actuellement en pause -> on reprend. On réinitialise
+            # l'ancrage temps réel <-> temps séquence à partir d'ici :
+            # le temps passé en pause ne doit pas compter comme du temps
+            # écoulé dans la séquence.
+            self._command_start_elapsed = self._total_duration_seconds - self._remaining_seconds
+            self._command_start_wallclock = time.monotonic()
             self._pause_event.clear()
             self._pause_btn.config(text="Pause")
             # On restaure l'info "quelle commande est en cours" plutôt
@@ -571,9 +634,14 @@ class TextPage(tk.Frame):
             return f"{state.primary_toy_name() or 'Edge 2'} connecté"
         return "Toy non connecté"
 
+    def _update_status_dot(self) -> None:
+        color = theme.SUCCESS if self.controller.state.connected else theme.WARNING
+        self._status_dot.itemconfig(self._status_dot_item, fill=color)
+
     # Appelé automatiquement par AppWindow.show_page()
     def on_show(self) -> None:
         self._connection_label.config(text=self._connection_status_text(), fg=theme.TEXT_SECONDARY)
+        self._update_status_dot()
         self._refresh_template_list()
         if self._playing:
             # On revient sur une séquence en pause (ou en cours) laissée

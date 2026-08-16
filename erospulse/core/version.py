@@ -72,10 +72,24 @@ Historique résumé (voir CHANGELOG.md à la racine pour le détail) :
              configurable (par défaut Import/ à la racine du projet),
              listés dans un menu déroulant sur la page de séquence.
              Bouton pour masquer/afficher la zone de texte
+    0.17.0 — Ajout de la pastille de statut de connexion (verte/orange)
+             sur la page de séquence, à côté du label déjà présent,
+             même style que sur la page d'accueil
+    0.18.0 — 3 correctifs : (1-2) le graphique d'intensité et le
+             décompte étaient pilotés par un minuteur indépendant de la
+             lecture réelle, causant une dérive (notamment due à la
+             latence réseau) ; ils sont désormais resynchronisés sur les
+             événements réels de démarrage de chaque commande, comme le
+             message de progression ; (3) le message de progression
+             affiche maintenant l'occurrence de boucle en cours
+             (ex: "Commande 3/6 (boucle 2/3) — [...]")
+    0.18.1 — D (durée) accepte maintenant les décimales (ex: [1;1.5;
+             [10;0]]), en plus des entiers. Y, N (LOOP), A et B restent
+             des entiers
 """
 
 APP_NAME = "ErosPulse"
-APP_VERSION = "0.16.0"
+APP_VERSION = "0.18.1"
 
 
 def version_label() -> str:

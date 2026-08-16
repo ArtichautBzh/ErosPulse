@@ -3,6 +3,72 @@
 Toutes les versions notables du projet sont documentées ici. Le
 projet s'appelait "Lovense Text-to-Vibe" jusqu'à la v0.10.0.
 
+## v0.18.1
+
+**Durées décimales**
+- Le champ `D` du format `[Y;D;[A;B]]` accepte désormais les nombres
+  décimaux (ex: `[1;1.5;[10;0]]` pour une vibration de 1,5 seconde),
+  en plus des entiers. `Y`, `N` (dans `LOOP(N){...}`), `A` et `B`
+  restent des entiers (un moteur, un nombre de répétitions ou une
+  intensité n'ont pas de sens en décimal).
+- `VibrationCommand.duration` est donc typé `float`, mais une durée
+  ronde (ex: `2`) reste stockée et affichée comme un entier propre
+  (`[1;2;[5;0]]`, pas `[1;2.0;[5;0]]`).
+- Confirmé de bout en bout : le réseau transmettait déjà des durées
+  décimales (`timeSec`) en interne pour la reprise après pause ; c'était
+  uniquement le format texte qui ne les acceptait pas en entrée.
+- `core/ai_prompt.py` mis à jour pour indiquer que les décimales sont
+  permises.
+
+## v0.18.0
+
+**Correctifs de synchronisation**
+
+Le graphique d'intensité et le décompte de temps restant étaient
+calculés par un minuteur indépendant (basé uniquement sur l'horloge
+murale écoulée depuis le lancement de la lecture), déconnecté du
+déroulement réel de la séquence côté réseau. Résultat : une dérive
+progressive, en particulier à cause du temps réseau de chaque envoi de
+commande (notamment perceptible sur les commandes à deux moteurs, qui
+envoient deux requêtes). Le message de progression, lui, était déjà
+correct car directement piloté par les événements réels du thread de
+lecture (`on_command_start`).
+
+- Le graphique et le décompte sont désormais **resynchronisés sur ces
+  mêmes événements réels** : à chaque vrai début de commande, le repère
+  du graphique et le calcul du temps restant sont recalés sur le temps
+  cumulé nominal de la séquence à cet instant précis — éliminant toute
+  dérive, y compris due à la latence réseau. Entre deux débuts de
+  commande, l'affichage continue d'avancer de façon fluide par
+  interpolation, mais toujours ancré sur le dernier point réel connu.
+- La pause/reprise a été adaptée en conséquence : à la reprise, le
+  point d'ancrage est réinitialisé pour que le temps passé en pause ne
+  soit jamais compté comme du temps de lecture.
+- Vérifié avec une latence réseau artificielle (0.3-0.4s par commande) :
+  le repère du graphique retombe exactement sur les valeurs nominales
+  attendues (0s, 1s, 2s...) à chaque vrai changement de commande, quelle
+  que soit la latence accumulée pour y arriver.
+
+**Affichage de l'occurrence de boucle**
+- `core/vibration_command.py` : nouvelle fonction
+  `parse_sequence_detailed()` qui renvoie, en plus de chaque commande,
+  sa position dans les éventuelles boucles `LOOP(N){...}` qui la
+  contiennent (boucles imbriquées gérées, niveau par niveau).
+  `parse_sequence()` reste inchangée (rétrocompatible).
+- Le message de progression affiche maintenant cette information, ex:
+  `Commande 3/6 (boucle 2/3) — [1;2;[10;0]]`, ou
+  `(boucle 1/2 > 3/3)` pour des boucles imbriquées.
+
+## v0.17.0
+
+**Pastille de statut sur la page de séquence**
+- Ajout d'une pastille colorée (verte = connecté, orange = non
+  connecté) à côté du label de statut de connexion en haut à droite de
+  la page de séquence, reprenant exactement le même style que sur la
+  page d'accueil (`ui/pages/home_page.py`).
+- La couleur se met à jour automatiquement à chaque retour sur la page
+  (`on_show()`), en cohérence avec le texte déjà affiché.
+
 ## v0.16.0
 
 **Import de modèles de séquence**

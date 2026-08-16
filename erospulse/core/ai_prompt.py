@@ -27,9 +27,12 @@ Chaque commande suit EXACTEMENT ce format :
     - 1 = Moteur 1 (interne) uniquement
     - 2 = Moteur 2 (périnée) uniquement
     - 3 = les deux moteurs en même temps
-- D : durée de la vibration, en secondes, ENTIER strictement positif
-    (D >= 1). N'utilise jamais D = 0 (cela signifierait une boucle
-    infinie côté jouet et bloquerait la suite de la séquence).
+- D : durée de la vibration, en secondes. Entier OU décimal (ex: 2 ou
+    1.5), strictement positif (D >= 0.1 en pratique). N'utilise jamais
+    D = 0 (cela signifierait une boucle infinie côté jouet et
+    bloquerait la suite de la séquence). Les décimales sont utiles pour
+    des effets courts et précis (ex: 0.5 pour un à-coup bref), mais ne
+    les utilise pas systématiquement si des durées entières suffisent.
 - A : intensité du moteur 1, ENTIER de 0 à 20 inclus
 - B : intensité du moteur 2, ENTIER de 0 à 20 inclus
 

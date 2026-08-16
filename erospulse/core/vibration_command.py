@@ -10,8 +10,8 @@ piloter les moteurs de l'Edge 2 à partir du texte :
         1 = Moteur 1 (interne) uniquement
         2 = Moteur 2 (périnée) uniquement
         3 = les deux moteurs à la fois
-    D : durée de la vibration, en secondes (entier ; 0 = boucle
-        indéfiniment, comme le reste de l'API Lovense)
+    D : durée de la vibration, en secondes (entier ou décimal, ex: 1.5 ;
+        0 = boucle indéfiniment, comme le reste de l'API Lovense)
     [A;B] : intensités (0-20)
         A = intensité du moteur 1
         B = intensité du moteur 2
@@ -20,6 +20,7 @@ Exemples :
     [1;2;[10;0]]   -> moteur 1 seul, 2s, intensité 10
     [2;3;[0;15]]   -> moteur 2 seul, 3s, intensité 15
     [3;5;[10;15]]  -> les deux moteurs, 5s, moteur1=10 / moteur2=15
+    [1;1.5;[8;0]]  -> moteur 1 seul, 1,5 seconde, intensité 8
 
 Le format supporte aussi des boucles, pour répéter un bloc de
 commandes sans avoir à le retaper :
@@ -69,12 +70,17 @@ VALID_MOTORS = (MOTOR_1, MOTOR_2, MOTOR_BOTH)
 _PAUSE_POLL_INTERVAL = 0.2
 
 # Reconnaît "[Y;D;[A;B]]", espaces optionnels autour des séparateurs.
+# D accepte un entier ou un décimal (ex: 2 ou 1.5) ; Y, A, B restent des
+# entiers (un moteur, un identifiant, une intensité n'ont pas de sens
+# en décimal).
 _COMMAND_RE = re.compile(
-    r"\[\s*(?P<motor>[123])\s*;\s*(?P<duration>\d+)\s*;\s*"
+    r"\[\s*(?P<motor>[123])\s*;\s*(?P<duration>\d+(?:\.\d+)?)\s*;\s*"
     r"\[\s*(?P<a>\d+)\s*;\s*(?P<b>\d+)\s*\]\s*\]"
 )
 
 # Reconnaît le début d'un bloc "LOOP(N){", espaces optionnels tolérés.
+# N (le nombre de répétitions) reste un entier : "répéter 1,5 fois" n'a
+# pas de sens.
 _LOOP_OPEN_RE = re.compile(r"LOOP\s*\(\s*(?P<count>\d+)\s*\)\s*\{")
 
 
@@ -82,12 +88,21 @@ class SequenceSyntaxError(ValueError):
     """Erreur de syntaxe dans une séquence [Y;D;[A;B]] / LOOP(N){...}."""
 
 
+def _parse_duration(raw: str) -> float:
+    """Convertit le texte de D en nombre : entier si la valeur est
+    ronde (ex: "2" -> 2), sinon float (ex: "1.5" -> 1.5). Ça garde un
+    affichage propre dans to_string() (pas de "2.0" superflu) tout en
+    acceptant les durées décimales."""
+    value = float(raw)
+    return int(value) if value.is_integer() else value
+
+
 @dataclass
 class VibrationCommand:
     """Une commande de vibration au format [Y;D;[A;B]]."""
 
     motor: int
-    duration: int
+    duration: float
     intensity1: int
     intensity2: int
 
@@ -95,7 +110,7 @@ class VibrationCommand:
         if self.motor not in VALID_MOTORS:
             raise ValueError(f"Y (moteur) doit être 1, 2 ou 3, reçu : {self.motor!r}")
         if self.duration < 0:
-            raise ValueError(f"D (durée) doit être un entier >= 0, reçu : {self.duration!r}")
+            raise ValueError(f"D (durée) doit être un nombre >= 0, reçu : {self.duration!r}")
         self.intensity1 = clamp(self.intensity1, MIN_STRENGTH, MAX_STRENGTH)
         self.intensity2 = clamp(self.intensity2, MIN_STRENGTH, MAX_STRENGTH)
 
@@ -109,7 +124,7 @@ class VibrationCommand:
             raise ValueError(f"Format invalide, attendu [Y;D;[A;B]] : {text!r}")
         return cls(
             motor=int(match.group("motor")),
-            duration=int(match.group("duration")),
+            duration=_parse_duration(match.group("duration")),
             intensity1=int(match.group("a")),
             intensity2=int(match.group("b")),
         )
@@ -131,15 +146,33 @@ class VibrationCommand:
         return self.motor in (MOTOR_2, MOTOR_BOTH)
 
 
-def _parse_block(text: str, pos: int, inside_loop: bool) -> Tuple[List[VibrationCommand], int]:
+@dataclass
+class ParsedStep:
+    """Une commande dépliée, associée à sa position dans les éventuels
+    blocs LOOP(N){...} qui la contiennent — utile pour afficher
+    "boucle 2/3" dans l'interface pendant la lecture.
+
+    loop_path : liste de (itération_courante, nombre_total_itérations),
+    de la boucle la plus externe à la plus interne. Liste vide si la
+    commande n'est dans aucune boucle.
+    """
+
+    command: VibrationCommand
+    loop_path: List[Tuple[int, int]]
+
+
+def _parse_block(
+    text: str, pos: int, inside_loop: bool, loop_stack: Tuple[Tuple[int, int], ...] = ()
+) -> Tuple[List[ParsedStep], int]:
     """Analyse récursivement `text` à partir de `pos`, jusqu'à la fin du
     texte ou (si `inside_loop`) jusqu'à une accolade fermante "}"
     correspondant à un LOOP(...) ouvert par l'appelant.
 
-    Renvoie (liste plate de VibrationCommand, position juste après le
-    bloc). Les boucles LOOP(N){...} sont développées immédiatement : le
-    résultat ne contient jamais que des VibrationCommand, jamais de
-    structure de boucle.
+    Renvoie (liste plate de ParsedStep, position juste après le bloc).
+    Les boucles LOOP(N){...} sont développées immédiatement : le
+    résultat ne contient jamais que des commandes concrètes, jamais de
+    structure de boucle — seul `loop_path` garde trace, pour l'affichage,
+    de quelle(s) boucle(s) et itération(s) chaque commande provient.
 
     Tout caractère qui ne fait partie ni d'une commande [Y;D;[A;B]] ni
     d'une ouverture LOOP(N){ reconnue est simplement ignoré (espaces,
@@ -147,32 +180,43 @@ def _parse_block(text: str, pos: int, inside_loop: bool) -> Tuple[List[Vibration
     parseur à base de regex — pour rester tolérant face à du texte
     généré par une IA autour des commandes.
     """
-    commands: List[VibrationCommand] = []
+    steps: List[ParsedStep] = []
     n = len(text)
 
     while pos < n:
         loop_match = _LOOP_OPEN_RE.match(text, pos)
         if loop_match:
             count = int(loop_match.group("count"))
-            inner_commands, after = _parse_block(text, loop_match.end(), inside_loop=True)
-            commands.extend(inner_commands * count)
+            # On analyse le corps de la boucle une seule fois (en le
+            # labellisant comme itération 1), pour connaître à la fois
+            # son contenu ET la position juste après le "}" fermant.
+            inner_steps, after = _parse_block(
+                text, loop_match.end(), True, loop_stack + ((1, max(count, 1)),)
+            )
+            level = len(loop_stack)
+            for rep in range(1, count + 1):
+                for s in inner_steps:
+                    new_path = list(s.loop_path)
+                    new_path[level] = (rep, count)
+                    steps.append(ParsedStep(command=s.command, loop_path=new_path))
             pos = after
             continue
 
         cmd_match = _COMMAND_RE.match(text, pos)
         if cmd_match:
-            commands.append(VibrationCommand(
+            command = VibrationCommand(
                 motor=int(cmd_match.group("motor")),
-                duration=int(cmd_match.group("duration")),
+                duration=_parse_duration(cmd_match.group("duration")),
                 intensity1=int(cmd_match.group("a")),
                 intensity2=int(cmd_match.group("b")),
-            ))
+            )
+            steps.append(ParsedStep(command=command, loop_path=list(loop_stack)))
             pos = cmd_match.end()
             continue
 
         if text[pos] == "}":
             if inside_loop:
-                return commands, pos + 1
+                return steps, pos + 1
             # Accolade fermante orpheline (pas de LOOP(...) ouvert
             # correspondant) : on l'ignore, comme n'importe quel autre
             # caractère non reconnu.
@@ -183,7 +227,7 @@ def _parse_block(text: str, pos: int, inside_loop: bool) -> Tuple[List[Vibration
 
     if inside_loop:
         raise SequenceSyntaxError("Bloc LOOP(...) non refermé : accolade '}' manquante.")
-    return commands, pos
+    return steps, pos
 
 
 def parse_sequence(text: str) -> List[VibrationCommand]:
@@ -196,8 +240,18 @@ def parse_sequence(text: str) -> List[VibrationCommand]:
     Lève SequenceSyntaxError (une ValueError) si un bloc LOOP(...) est
     ouvert sans être refermé.
     """
-    commands, _ = _parse_block(text, 0, inside_loop=False)
-    return commands
+    steps, _ = _parse_block(text, 0, inside_loop=False)
+    return [s.command for s in steps]
+
+
+def parse_sequence_detailed(text: str) -> List[ParsedStep]:
+    """Comme parse_sequence(), mais renvoie aussi, pour chaque commande,
+    sa position dans les éventuelles boucles LOOP(N){...} qui la
+    contiennent (voir ParsedStep). Utilisé par l'interface pour afficher
+    "boucle 2/3" dans le message de progression pendant la lecture.
+    """
+    steps, _ = _parse_block(text, 0, inside_loop=False)
+    return steps
 
 
 # ---------------------------------------------------------------------
