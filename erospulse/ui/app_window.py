@@ -33,6 +33,7 @@ from tkinter import messagebox, ttk
 
 from core.app_state import AppState
 from core.version import APP_NAME, APP_VERSION
+from core import user_profile
 from ui import theme
 
 # Registre des pages : nom -> (chemin du module, nom de la classe).
@@ -62,6 +63,13 @@ class AppWindow(tk.Tk):
         # État partagé (connexion au toy) accessible depuis toutes les pages
         # via self.state.
         self.state = AppState()
+
+        # Une seule fois par lancement de l'application : incrémente le
+        # compteur d'ouvertures du profil utilisateur (voir
+        # ui/profile_window.py). core.user_profile n'a aucune dépendance
+        # externe, donc cet appel ne peut pas empêcher la page d'accueil
+        # de s'afficher.
+        user_profile.record_app_open()
 
         # Conteneur qui empile toutes les pages ; une seule est visible
         # à la fois grâce à .tkraise().

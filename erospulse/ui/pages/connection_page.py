@@ -24,6 +24,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from core.lovense_client import LovenseClient
+from core import user_profile
 from ui import theme
 
 TEST_VIBRATION_STRENGTH = 8
@@ -40,7 +41,7 @@ class ConnectionPage(tk.Frame):
         super().__init__(parent, bg=theme.BG_DARK)
         self.controller = controller
 
-        self._ip_var = tk.StringVar(value="192.168.1.")
+        self._ip_var = tk.StringVar(value=user_profile.get_last_ip() or "192.168.1.")
         self._port_var = tk.StringVar(value="30010")
         self._https_var = tk.BooleanVar(value=True)
         self._busy = False
@@ -277,6 +278,7 @@ class ConnectionPage(tk.Frame):
                 self._apply_connection_result(client, toys)  # affiche le message "aucun toy détecté"
                 return
             self.controller.state.set_connection(client, toys)
+            user_profile.set_last_ip(client.host)
             self._continue_btn.config(state="normal")
             # Connexion réussie : on enchaîne immédiatement sur la vibration
             # du moteur demandé.
@@ -329,6 +331,7 @@ class ConnectionPage(tk.Frame):
             return
 
         self.controller.state.set_connection(client, toys)
+        user_profile.set_last_ip(client.host)
         names = ", ".join(t.get("name", tid) for tid, t in toys.items())
         self._set_result(f"Connecté ✓ — toy détecté : {names}", theme.SUCCESS)
         self._continue_btn.config(state="normal")

@@ -86,10 +86,18 @@ Historique résumé (voir CHANGELOG.md à la racine pour le détail) :
     0.18.1 — D (durée) accepte maintenant les décimales (ex: [1;1.5;
              [10;0]]), en plus des entiers. Y, N (LOOP), A et B restent
              des entiers
+    0.19.0 — Profil utilisateur (core/user_profile.py,
+             ui/profile_window.py) : prénom (par défaut "A"), nombre
+             d'ouvertures de l'app, temps de vibration effectif cumulé,
+             dernière IP de connexion, dossier des modèles, export/
+             import vers un fichier texte. Accessible via un bouton
+             "buste" en haut à gauche de l'accueil, à la place du
+             libellé "ErosPulse". Persiste automatiquement d'une
+             session à l'autre, sans export/import nécessaire
 """
 
 APP_NAME = "ErosPulse"
-APP_VERSION = "0.18.1"
+APP_VERSION = "0.19.0"
 
 
 def version_label() -> str:

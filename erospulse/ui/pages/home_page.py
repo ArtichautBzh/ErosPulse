@@ -2,7 +2,9 @@
 home_page.py
 ============
 Page d'accueil : présente ErosPulse, indique l'état de connexion au
-toy et propose d'entrer dans le flux principal (saisie de texte).
+toy, propose d'entrer dans le flux principal (saisie de texte), et
+donne accès au profil utilisateur via le bouton "buste" en haut à
+gauche (remplace l'ancien libellé texte "ErosPulse" à cet emplacement).
 """
 
 from __future__ import annotations
@@ -24,20 +26,13 @@ class HomePage(tk.Frame):
         self._build_footer()
 
     # ------------------------------------------------------------------
-    # Barre du haut : statut de connexion au toy
+    # Barre du haut : profil (gauche) + statut de connexion au toy (droite)
     # ------------------------------------------------------------------
     def _build_status_bar(self) -> None:
         bar = tk.Frame(self, bg=theme.BG_DARK)
         bar.pack(fill="x", padx=28, pady=(20, 0))
 
-        brand = tk.Label(
-            bar,
-            text=APP_NAME,
-            bg=theme.BG_DARK,
-            fg=theme.TEXT_SECONDARY,
-            font=theme.FONT_BODY_BOLD,
-        )
-        brand.pack(side="left")
+        self._build_profile_button(bar)
 
         status = tk.Frame(bar, bg=theme.BG_DARK)
         status.pack(side="right")
@@ -58,6 +53,23 @@ class HomePage(tk.Frame):
             font=theme.FONT_SMALL,
         )
         self._status_label.pack(side="left")
+
+    def _build_profile_button(self, parent: tk.Widget) -> None:
+        """Bouton "buste de personne" ouvrant la fenêtre de profil
+        utilisateur (voir ui/profile_window.py). Remplace l'ancien
+        libellé texte "ErosPulse" à cet emplacement.
+
+        Dessiné à la main sur un Canvas (tête + épaules) plutôt qu'avec
+        un caractère emoji : rendu fiable quelle que soit la police du
+        système, contrairement aux emoji qui peuvent manquer selon l'OS."""
+        size = 30
+        canvas = tk.Canvas(
+            parent, width=size, height=size, bg=theme.BG_DARK, highlightthickness=0, cursor="hand2",
+        )
+        canvas.create_oval(9, 3, 21, 15, fill=theme.ACCENT, outline="")
+        canvas.create_arc(2, 13, 28, 39, start=0, extent=180, fill=theme.ACCENT, outline="", style="pieslice")
+        canvas.bind("<Button-1>", lambda event: self._on_open_profile())
+        canvas.pack(side="left")
 
     # ------------------------------------------------------------------
     # Bloc central : présentation + call-to-action
@@ -160,6 +172,13 @@ class HomePage(tk.Frame):
 
     def _on_configure(self) -> None:
         self.controller.show_page("connection")
+
+    def _on_open_profile(self) -> None:
+        # Import local : évite tout risque de dépendance circulaire au
+        # chargement du module, et garde ui.profile_window optionnel du
+        # point de vue de home_page (n'est chargé qu'au premier clic).
+        from ui.profile_window import ProfileWindow
+        ProfileWindow(self)
 
     # ------------------------------------------------------------------
     def _status_text_and_color(self) -> tuple[str, str]:

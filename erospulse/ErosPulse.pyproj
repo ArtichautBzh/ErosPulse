@@ -34,10 +34,12 @@
     <Compile Include="core\pattern_generator.py" />
     <Compile Include="core\settings.py" />
     <Compile Include="core\template_library.py" />
+    <Compile Include="core\user_profile.py" />
     <Compile Include="core\version.py" />
     <Compile Include="core\vibration_command.py" />
     <Compile Include="ui\__init__.py" />
     <Compile Include="ui\app_window.py" />
+    <Compile Include="ui\profile_window.py" />
     <Compile Include="ui\theme.py" />
     <Compile Include="ui\pages\__init__.py" />
     <Compile Include="ui\pages\connection_page.py" />
