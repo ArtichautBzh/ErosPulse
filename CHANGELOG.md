@@ -3,6 +3,35 @@
 Toutes les versions notables du projet sont documentées ici. Le
 projet s'appelait "Lovense Text-to-Vibe" jusqu'à la v0.10.0.
 
+## v0.19.0
+
+**Profil utilisateur**
+- Nouveau module `core/user_profile.py` : profil persisté (prénom,
+  nombre d'ouvertures de l'application, temps de vibration effectif
+  cumulé, dernière IP de connexion utilisée), stocké dans son propre
+  fichier `profile.json` à la racine du projet. Se met à jour et se
+  sauvegarde automatiquement au fil de l'usage — aucune action de
+  l'utilisateur n'est nécessaire pour qu'il persiste d'une session à
+  l'autre. Nom par défaut : `A`.
+- Nouvelle fenêtre `ui/profile_window.py` (Toplevel), accessible via un
+  bouton "buste de personne" en haut à gauche de la page d'accueil —
+  qui remplace le libellé texte "ErosPulse" à cet emplacement. Permet :
+  - de modifier et enregistrer son prénom ;
+  - de consulter le nombre d'ouvertures de l'app et le temps de
+    vibration effectif cumulé (format h:mm:ss) ;
+  - de choisir le dossier des modèles (réutilise
+    `core/settings.py`, déjà utilisé par la page de séquence) ;
+  - d'**exporter** l'ensemble de ces informations vers un fichier texte,
+    et de les **importer** depuis un tel fichier pour les restaurer.
+- La page de connexion enregistre désormais automatiquement l'IP dans
+  le profil dès qu'une connexion réussit, et pré-remplit le champ IP
+  avec la dernière IP connue au chargement de la page.
+- `ui/app_window.py` incrémente le compteur d'ouvertures une fois par
+  lancement de l'application.
+- Le temps de vibration effectif (ajouté au profil à chaque lecture
+  terminée ou arrêtée) sera branché à la page de séquence dans une
+  prochaine mise à jour.
+
 ## v0.18.1
 
 **Durées décimales**
