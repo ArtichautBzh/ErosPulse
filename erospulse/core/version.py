@@ -94,10 +94,30 @@ Historique résumé (voir CHANGELOG.md à la racine pour le détail) :
              "buste" en haut à gauche de l'accueil, à la place du
              libellé "ErosPulse". Persiste automatiquement d'une
              session à l'autre, sans export/import nécessaire
+    0.19.1 — Correctif : le profil et les réglages (dossier des
+             modèles) ne survivaient pas à la fermeture de
+             l'application une fois celle-ci empaquetée en exécutable
+             (.exe via PyInstaller), car leur chemin de sauvegarde était
+             calculé à partir du dossier temporaire d'extraction de
+             PyInstaller (recréé à chaque lancement) plutôt qu'à côté de
+             l'exécutable. Nouveau module core/app_paths.py, utilisé par
+             core/user_profile.py et core/settings.py
+    0.20.0 — Mode Mini : vue alternative de la page de séquence
+             (graphique agrandi avec "▶ Playhead", temps écoulé / durée
+             totale, boutons Play-Pause et Stop/Reset), accessible par un
+             bouton "Mode Mini" à la place du chemin du dossier. La
+             lecture continue sans interruption en passant d'une vue à
+             l'autre. Le temps de vibration effectif est maintenant
+             ajouté au profil à chaque lecture terminée ou arrêtée
+    0.20.1 — Correctif : erreur "name 'Path' is not defined" qui
+             empêchait d'ouvrir la page de séquence dès qu'un dossier
+             de modèles personnalisé était enregistré (import de
+             pathlib.Path oublié dans core/settings.py, introduit par
+             le correctif 0.19.1)
 """
 
 APP_NAME = "ErosPulse"
-APP_VERSION = "0.19.0"
+APP_VERSION = "0.20.1"
 
 
 def version_label() -> str:

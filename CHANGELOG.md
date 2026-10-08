@@ -3,6 +3,83 @@
 Toutes les versions notables du projet sont documentées ici. Le
 projet s'appelait "Lovense Text-to-Vibe" jusqu'à la v0.10.0.
 
+## v0.20.1
+
+**Correctif : page de séquence inaccessible**
+- Une fois le toy connecté, le bouton « Commencer » affichait l'erreur
+  « La page « text » n'a pas pu se charger. name 'Path' is not defined ».
+- Cause : le correctif de persistance de la v0.19.1 avait retiré
+  `from pathlib import Path` de `core/settings.py`, alors que
+  `get_import_folder()` utilise encore `Path(...)` dès qu'un dossier de
+  modèles personnalisé est enregistré (via « Dossier… » ou le profil).
+  Sans dossier personnalisé, le code n'était jamais exécuté, donc mes
+  vérifications d'alors ne l'avaient pas détecté.
+- Import rétabli. Un contrôle statique des noms non définis a été
+  exécuté sur tout le projet (hors dépendances vendorisées) : aucun
+  autre cas, et ce contrôle détecte bien l'erreur d'origine.
+- Vérifié de bout en bout : page chargée avec un dossier personnalisé
+  configuré, puis scénario complet du mode Mini (lecture lancée depuis
+  le mode Mini, pause, retour en vue normale sans interruption,
+  reprise, fin de séquence, Stop / Reset, temps de vibration ajouté au
+  profil).
+
+## v0.20.0
+
+**Mode Mini**
+- Nouvelle vue alternative de la page de séquence, basée sur la
+  maquette fournie : en-tête « ← Modifier la séquence » + statut de
+  connexion, graphique agrandi avec l'annotation « ▶ Playhead »,
+  « temps écoulé » (gauche) et « durée totale » (droite) au format
+  `mm:ss`, et deux gros boutons **Play / Resume** (qui devient
+  « Pause » pendant la lecture) et **Stop / Reset**.
+- Accès par un bouton « ⤢ Mode Mini » dans la barre d'import, à la
+  place de l'ancien chemin du dossier (désormais consultable dans la
+  fenêtre de profil).
+- C'est la **même page** affichée différemment (pas une page séparée) :
+  mêmes threads, mêmes minuteurs, même état de lecture. Passer du mode
+  Normal au mode Mini et inversement n'interrompt donc jamais la
+  lecture en cours ; les deux vues (graphiques, boutons, statut de
+  connexion, messages) sont tenues synchronisées en permanence, même
+  quand l'une est cachée.
+- Un petit message de progression est ajouté en mode Mini (commande en
+  cours, boucle, erreurs de saisie) : sans lui, un clic sur Play avec un
+  éditeur vide n'aurait donné aucun retour visible. Légère entorse à la
+  maquette, assumée.
+- La légende des moteurs reste à l'intérieur du cadre du graphique
+  (comme en vue normale) plutôt que dessous, pour réutiliser le même
+  composant sans le dupliquer.
+- `SequenceChart` gagne un paramètre `show_playhead_label` (activé
+  uniquement pour le graphique du mode Mini, avec une rangée dédiée
+  sous la légende pour éviter tout chevauchement).
+- Le **temps de vibration effectif** est maintenant réellement ajouté
+  au profil utilisateur à chaque lecture terminée (durée totale) ou
+  arrêtée (temps réellement joué) — la statistique affichée dans la
+  fenêtre de profil, jusque-là toujours à zéro, se met enfin à jour.
+
+## v0.19.1
+
+**Correctif : persistance du profil et des réglages**
+- Le profil utilisateur et le dossier des modèles configuré ne
+  survivaient pas à la fermeture de l'application une fois celle-ci
+  empaquetée en exécutable (`.exe` via PyInstaller / `build_exe.bat` /
+  `build_exe.sh`). Cause : leur chemin de sauvegarde était calculé à
+  partir de `__file__`, qui pointe vers le dossier temporaire
+  d'extraction de PyInstaller (`sys._MEIPASS`) une fois l'app
+  empaquetée — un dossier recréé, différent, à chaque lancement, et
+  jeté à la fermeture. Tout ce qui y était écrit disparaissait donc.
+- Nouveau module `core/app_paths.py` : détecte si l'app tourne comme
+  exécutable figé (`sys.frozen`) et, dans ce cas, stocke les fichiers
+  persistés à côté de l'exécutable lui-même plutôt que dans ce dossier
+  temporaire. En exécution depuis les sources Python, le comportement
+  est inchangé (dossier du projet).
+- `core/user_profile.py` et `core/settings.py` utilisent désormais ce
+  module commun, pour stocker `profile.json` et `settings.json` au
+  même endroit stable, avec la même logique.
+- Vérifié avec une simulation d'exécutable figé (`sys.frozen` +
+  `sys.executable` forcés) : les données écrites lors d'un "lancement"
+  sont bien relues intactes lors d'un second "lancement" simulé dans un
+  nouveau process.
+
 ## v0.19.0
 
 **Profil utilisateur**

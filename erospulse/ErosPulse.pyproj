@@ -28,6 +28,7 @@
     <Compile Include="main.py" />
     <Compile Include="core\__init__.py" />
     <Compile Include="core\ai_prompt.py" />
+    <Compile Include="core\app_paths.py" />
     <Compile Include="core\app_state.py" />
     <Compile Include="core\constants.py" />
     <Compile Include="core\lovense_client.py" />

@@ -2,9 +2,9 @@
 settings.py
 ===========
 Réglages PERSISTÉS de l'application (sauvegardés sur disque dans un
-petit fichier JSON à la racine du projet), pour survivre entre deux
-lancements — actuellement : le dossier scanné pour les modèles de
-séquence importables (voir core/template_library.py).
+petit fichier JSON à côté de l'application — voir core/app_paths.py),
+pour survivre entre deux lancements — actuellement : le dossier scanné
+pour les modèles de séquence importables (voir core/template_library.py).
 
 À la différence de core/app_state.py (état de connexion au toy,
 purement en mémoire, réinitialisé à chaque lancement), ce module gère
@@ -17,7 +17,9 @@ import json
 from pathlib import Path
 from typing import Any, Dict
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+from core.app_paths import get_app_base_dir
+
+_PROJECT_ROOT = get_app_base_dir()
 DEFAULT_IMPORT_FOLDER = _PROJECT_ROOT / "Import"
 _SETTINGS_FILE = _PROJECT_ROOT / "settings.json"
 

@@ -18,10 +18,11 @@ le fonctionnement normal.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any, Dict, Optional
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+from core.app_paths import get_app_base_dir
+
+_PROJECT_ROOT = get_app_base_dir()
 _PROFILE_FILE = _PROJECT_ROOT / "profile.json"
 
 DEFAULT_NAME = "A"

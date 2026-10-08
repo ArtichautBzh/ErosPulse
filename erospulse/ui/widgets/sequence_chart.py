@@ -27,6 +27,10 @@ _PADDING_LEFT = 42
 _PADDING_RIGHT = 16
 _PADDING_TOP = 22
 _PADDING_BOTTOM = 22
+# Hauteur supplémentaire réservée en haut du graphique quand l'annotation
+# "▶ Playhead" est activée (mode Mini) : une rangée dédiée sous la
+# légende, pour que les deux ne se chevauchent jamais.
+_PLAYHEAD_LABEL_ROW = 14
 
 _MOTOR1_COLOR = theme.ACCENT
 _MOTOR2_COLOR = theme.ACCENT_MUTED
@@ -80,12 +84,20 @@ def _format_axis_time(seconds: float) -> str:
 
 
 class SequenceChart(tk.Canvas):
-    """Graphique intensité(t) des deux moteurs pour une séquence."""
+    """Graphique intensité(t) des deux moteurs pour une séquence.
 
-    def __init__(self, parent: tk.Widget, **kwargs) -> None:
+    show_playhead_label : si True, affiche l'annotation "▶ Playhead" au-
+    dessus du repère de lecture (utilisé par le graphique agrandi du
+    mode Mini, voir ui/pages/text_page.py). Réserve alors une rangée
+    supplémentaire en haut du graphique ; désactivé par défaut pour ne
+    pas réduire la zone de tracé du petit graphique de la vue normale.
+    """
+
+    def __init__(self, parent: tk.Widget, show_playhead_label: bool = False, **kwargs) -> None:
         kwargs.setdefault("bg", theme.BG_CARD)
         kwargs.setdefault("highlightthickness", 0)
         super().__init__(parent, **kwargs)
+        self._show_playhead_label = show_playhead_label
         self._commands: List[VibrationCommand] = []
         self._total_duration: float = 0.0
         self._infinite: bool = False
@@ -132,7 +144,12 @@ class SequenceChart(tk.Canvas):
             return
 
         x0, x1 = _PADDING_LEFT, width - _PADDING_RIGHT
-        y0, y1 = _PADDING_TOP, height - _PADDING_BOTTOM
+        # Rangée supplémentaire en haut si l'annotation "▶ Playhead" est
+        # activée (mode Mini) : la légende et la note "boucle infinie"
+        # restent à position fixe (rangée du haut), l'annotation du repère
+        # a sa propre rangée juste en dessous — jamais de chevauchement.
+        top = _PADDING_TOP + (_PLAYHEAD_LABEL_ROW if self._show_playhead_label else 0)
+        y0, y1 = top, height - _PADDING_BOTTOM
         plot_w = max(1, x1 - x0)
         plot_h = max(1, y1 - y0)
 
@@ -148,7 +165,7 @@ class SequenceChart(tk.Canvas):
 
         if infinite:
             self.create_text(
-                x1, y0 - 12, anchor="ne",
+                x1, _PADDING_TOP - 12, anchor="ne",
                 text="boucle infinie ensuite (fin de séquence)",
                 fill=theme.TEXT_MUTED, font=theme.FONT_SMALL,
             )
@@ -156,8 +173,15 @@ class SequenceChart(tk.Canvas):
         if self._playhead_seconds is not None:
             px = x_of(self._playhead_seconds)
             self.create_line(px, y0, px, y1, fill=_PLAYHEAD_COLOR, width=2, dash=(4, 2))
+            if self._show_playhead_label:
+                # Annotation au-dessus du repère ; recalée vers la gauche
+                # si on est trop près du bord droit pour qu'elle tienne.
+                self.create_text(
+                    px, y0 - 3, anchor="s" if px < (x1 - 60) else "se",
+                    text="▶ Playhead", fill=_PLAYHEAD_COLOR, font=theme.FONT_SMALL,
+                )
 
-        self._draw_legend(x0, y0)
+        self._draw_legend(x0)
 
     def _draw_placeholder(self, width: int, height: int) -> None:
         self.create_text(
@@ -191,8 +215,10 @@ class SequenceChart(tk.Canvas):
         if len(flat) >= 4:
             self.create_line(*flat, fill=color, width=2)
 
-    def _draw_legend(self, x0: float, y0: float) -> None:
-        y = y0 - 14
+    def _draw_legend(self, x0: float) -> None:
+        # Position verticale fixe (rangée du haut), indépendante d'une
+        # éventuelle rangée supplémentaire réservée à "▶ Playhead".
+        y = _PADDING_TOP - 14
         self.create_rectangle(x0, y, x0 + 10, y + 10, fill=_MOTOR1_COLOR, outline="")
         self.create_text(x0 + 14, y + 5, anchor="w", text="Moteur 1", fill=theme.TEXT_SECONDARY, font=theme.FONT_SMALL)
         self.create_rectangle(x0 + 84, y, x0 + 94, y + 10, fill=_MOTOR2_COLOR, outline="")
