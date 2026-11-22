@@ -20,6 +20,15 @@ cd /d "%~dp0"
 echo.
 echo === Installing PyInstaller ===
 python -m pip install --upgrade pyinstaller
+
+REM Optional: bleak = direct Bluetooth mode. A failure here is not fatal
+REM (the executable will simply not offer direct Bluetooth).
+python -m pip install --upgrade bleak
+if errorlevel 1 (
+    echo.
+    echo WARNING: could not install bleak - the executable will be built
+    echo WITHOUT the direct Bluetooth mode ^(Wi-Fi mode is unaffected^).
+)
 if errorlevel 1 (
     echo.
     echo Failed to install PyInstaller. Make sure Python and pip are

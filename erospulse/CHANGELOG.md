@@ -3,6 +3,78 @@
 Toutes les versions notables du projet sont documentées ici. Le
 projet s'appelait "Lovense Text-to-Vibe" jusqu'à la v0.10.0.
 
+## v0.21.1
+
+**Recherche Bluetooth : plus robuste et diagnostiquable**
+- Un toy n'est plus écarté silencieusement s'il n'annonce pas de nom
+  Bluetooth : il est reconnu aussi par les **services** qu'il annonce
+  (famille `xx300001-0023-4bd4-bbd5-a6920e4c5653`). Auparavant, tout
+  appareil sans nom était ignoré, même détecté.
+- Nouvelle case **« Afficher tous les appareils (y compris sans nom) »** :
+  liste tout ce qui a été détecté (toys Lovense d'abord, puis appareils
+  nommés, puis sans nom), pour choisir son toy à la main s'il n'est pas
+  reconnu automatiquement. Le **signal en dBm** est affiché pour repérer le
+  plus proche du PC.
+- Durée de recherche portée de 5 à 8 secondes.
+- Messages précis après chaque recherche : combien d'appareils détectés
+  au total, et pourquoi aucun n'est proposé (aucun appareil du tout =
+  Bluetooth du PC / adaptateur ; appareils sans nom ; aucun toy reconnu...).
+- Nouveau fichier **`ble_diagnostic.log`** (à côté de l'application),
+  réécrit à chaque recherche : système, version de `bleak`, liste complète
+  des appareils vus (nom, adresse, signal, services) ou erreur. Permet de
+  comprendre à distance pourquoi un toy n'est pas trouvé.
+- Erreurs Bluetooth toujours exploitables (le type d'exception est indiqué
+  quand le message est vide) ; un module `bleak` installé mais incomplet est
+  détecté tout de suite, avec la commande de réinstallation.
+
+## v0.21.0
+
+**Connexion Bluetooth directe (PC -> toy)**
+- Nouveau sélecteur de mode en haut de la page « Configurer la
+  connexion » : **Lovense Remote (Wi-Fi)** — le mode historique, inchangé
+  et toujours proposé par défaut — ou **Bluetooth direct (PC)**.
+- En mode Bluetooth : bouton « Rechercher » (5 s), liste des toys
+  détectés (les appareils au nom Lovense d'abord, signal le plus fort en
+  tête ; si aucun nom Lovense n'est reconnu, tous les appareils nommés
+  sont proposés), puis « Se connecter ». Les boutons « Tester Moteur 1 /
+  2 » fonctionnent dans les deux modes (en Bluetooth, ils se connectent
+  d'abord au toy sélectionné si besoin).
+- Nouveau module `core/ble_client.py` : `BleLovenseClient`, interchangeable
+  avec `LovenseClient` (mêmes méthodes `vibrate_motor` / `stop` /
+  `get_toys_parsed`). Lecture de séquences, graphique, mode Mini, pause :
+  tout fonctionne sans modification quel que soit le mode.
+- **Pas de durée intégrée en Bluetooth** : contrairement à l'app Lovense
+  Remote (`timeSec`), le protocole du toy garde une intensité jusqu'à
+  nouvel ordre. Le client coupe donc lui-même chaque moteur à la fin du
+  pas (minuteur par moteur, avec 0,15 s de grâce pour ne pas créer de
+  micro-trou entre deux pas consécutifs). Un compteur de « génération »
+  par moteur garantit qu'un minuteur périmé ne coupe jamais une commande
+  plus récente. `stop()` (pause, arrêt) annule tous les minuteurs.
+- Un ordre sur un moteur coupe l'autre, comme avec l'app Lovense Remote ;
+  les pas à deux moteurs (Y=3) pilotent les deux avec leurs intensités
+  respectives.
+- Le service de commande du toy est détecté dans ce qu'il annonce, et
+  les caractéristiques d'écriture / notification sont choisies d'après
+  leurs propriétés GATT plutôt que codées en dur.
+- Un toy ne se connecte qu'à un seul appareil à la fois : changer de mode
+  (ou fermer l'application) libère la connexion Bluetooth et coupe le toy.
+- L'IP du profil n'est mise à jour qu'en mode Wi-Fi.
+- Dépendance **optionnelle** : `bleak` (`pip install bleak`, ajouté à
+  `requirements.txt`). Sans lui, l'application démarre et fonctionne
+  normalement en mode Wi-Fi ; le mode Bluetooth affiche alors comment
+  l'installer. `build_exe.bat` / `build_exe.sh` l'installent (sans
+  bloquer en cas d'échec) et `ErosPulse.spec` inclut ses sous-modules.
+- **Non validé sur un vrai toy** : le protocole vient de la documentation
+  publique de projets open source ; tout le reste (ordres envoyés,
+  minuteurs, enchaînement des pas, déconnexion, fermeture) est testé avec
+  un faux backend Bluetooth. Les boutons « Tester Moteur » servent à
+  vérifier le tout sur le matériel.
+
+**Correctif**
+- Page de connexion : une IP vide ou un port invalide laissait tous les
+  boutons désactivés indéfiniment (le mode « occupé » était activé avant
+  la validation de la saisie). La saisie est maintenant validée d'abord.
+
 ## v0.20.1
 
 **Correctif : page de séquence inaccessible**

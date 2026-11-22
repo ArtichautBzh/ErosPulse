@@ -114,10 +114,20 @@ Historique résumé (voir CHANGELOG.md à la racine pour le détail) :
              de modèles personnalisé était enregistré (import de
              pathlib.Path oublié dans core/settings.py, introduit par
              le correctif 0.19.1)
+    0.21.0 — Connexion Bluetooth directe PC -> toy (core/ble_client.py) :
+             nouveau mode dans la page "Configurer la connexion", à côté
+             du mode Lovense Remote (Wi-Fi) qui reste le mode par défaut
+             et ne change pas. Nécessite le module optionnel "bleak".
+             Correctif au passage : une IP/un port invalide laissait les
+             boutons de la page de connexion bloqués
+    0.21.1 — Recherche Bluetooth plus robuste et diagnostiquable : toy
+             reconnu aussi par les services qu'il annonce (nom absent),
+             case "Afficher tous les appareils", signal en dBm, messages
+             précis, fichier ble_diagnostic.log
 """
 
 APP_NAME = "ErosPulse"
-APP_VERSION = "0.20.1"
+APP_VERSION = "0.21.1"
 
 
 def version_label() -> str:

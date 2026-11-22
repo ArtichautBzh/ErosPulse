@@ -24,6 +24,16 @@ ErosPulse is a Tkinter GUI app) at dist/ErosPulse(.exe).
 
 from pathlib import Path
 
+# Direct Bluetooth mode (core/ble_client.py) loads its platform backend
+# dynamically, which PyInstaller cannot see by static analysis: when bleak
+# is installed, bundle all of its submodules. If it is not installed, the
+# executable is simply built without the direct Bluetooth mode.
+try:
+    from PyInstaller.utils.hooks import collect_submodules
+    _bleak_modules = collect_submodules("bleak")
+except Exception:
+    _bleak_modules = []
+
 block_cipher = None
 project_root = Path(SPECPATH)
 
@@ -57,7 +67,15 @@ a = Analysis(
         "idna",
         "urllib3",
         "certifi",
-    ],
+        # modules added in later versions (imported statically, listed
+        # here as a safety net)
+        "core.app_paths",
+        "core.settings",
+        "core.template_library",
+        "core.user_profile",
+        "core.ble_client",
+        "ui.profile_window",
+    ] + _bleak_modules,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

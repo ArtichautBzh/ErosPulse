@@ -10,3 +10,11 @@
 
 requests>=2.31
 urllib3>=2.0
+
+# OPTIONNEL — connexion Bluetooth directe PC -> toy (page "Configurer la
+# connexion", mode "Bluetooth direct"). Sans ce module, ErosPulse
+# fonctionne normalement en mode Lovense Remote (Wi-Fi) ; il est seulement
+# requis pour le mode Bluetooth. Windows 10/11 (ou macOS / Linux avec
+# BlueZ) et un adaptateur Bluetooth 4.0+ (LE) sont nécessaires.
+#   pip install bleak
+bleak>=0.21

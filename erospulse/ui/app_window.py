@@ -28,6 +28,7 @@ dépend que de Tkinter : elle s'affiche donc toujours.
 from __future__ import annotations
 
 import importlib
+import threading
 import tkinter as tk
 from tkinter import messagebox, ttk
 
@@ -86,6 +87,25 @@ class AppWindow(tk.Tk):
         # sa construction ne peut pas échouer pour une histoire de
         # dépendance manquante. Les autres pages se chargent à la demande.
         self.show_page("home")
+
+        # Fermeture propre (voir _on_close) : libère une éventuelle
+        # connexion Bluetooth directe.
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    def _on_close(self) -> None:
+        """À la fermeture de la fenêtre : si le toy est connecté en
+        Bluetooth direct, on le coupe et on libère la connexion (sinon il
+        pourrait rester en vibration et indisponible pour l'app Lovense
+        Remote). On n'attend pas plus de 3 secondes : la fermeture de
+        l'application ne doit jamais rester bloquée. Le mode Wi-Fi n'est
+        pas concerné (le toy y est piloté par l'app Lovense Remote)."""
+        client = self.state.client if self.state.connected else None
+        close = getattr(client, "close", None)
+        if close is not None:
+            worker = threading.Thread(target=close, daemon=True)
+            worker.start()
+            worker.join(timeout=3.0)
+        self.destroy()
 
     # -- Gestion des pages ------------------------------------------------
 

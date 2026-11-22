@@ -22,6 +22,11 @@ echo
 echo "=== Installing PyInstaller ==="
 python3 -m pip install --upgrade pyinstaller
 
+# Optional: bleak = direct Bluetooth mode. A failure here is not fatal
+# (the executable will simply not offer direct Bluetooth).
+python3 -m pip install --upgrade bleak || \
+    echo "WARNING: could not install bleak - building WITHOUT direct Bluetooth mode."
+
 echo
 echo "=== Building ErosPulse ==="
 export PYTHONPATH="$(pwd)/vendor:$PYTHONPATH"
